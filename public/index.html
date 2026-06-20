@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interview Flow</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/enhancements.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span>IF</span><strong>Interview Flow</strong></div>
+    <nav><button class="nav active">⌂ ダッシュボード</button><button class="nav">♙ 面接官・空き枠</button><button class="nav">◫ 共通調整リンク</button><button class="nav">▣ 確定した面接</button></nav>
+    <div class="side-bottom"><a href="/auth/google" class="google" id="googleButton">G&nbsp; Googleカレンダー連携</a><small>予定の自動登録・招待メール送信</small></div>
+  </aside>
+  <main>
+    <header><div><p class="eyebrow">RECRUITING SCHEDULER</p><h1>面接調整</h1><p class="sub">候補者には面接官名を伏せ、空き枠数だけを表示します。</p></div><button class="primary copy-common-link">共通リンクをコピー</button></header>
+    <div id="notice"></div>
+    <section class="stats four">
+      <article><span>面接官</span><strong id="interviewerCount">0</strong><small>空き枠を個別に管理</small></article>
+      <article><span>調整リンク</span><strong id="linkCount">1</strong><small>共通リンク1本で運用</small></article>
+      <article><span>確定した面接</span><strong id="bookingCount">0</strong><small>自動でカレンダーに登録</small></article>
+      <article><span>登録済み空き枠</span><strong id="availabilityCount">0</strong><small>予約済み枠は自動除外</small></article>
+    </section>
+    <section class="grid">
+      <div class="panel wide full-span"><div class="panel-head"><div><p class="eyebrow">INTERVIEWERS</p><h2>面接官ごとの空きスケジュール・優先順位</h2></div><div><button class="text-btn" data-open="interviewerModal">面接官を追加</button><button class="icon-btn" data-open="availabilityModal">＋</button></div></div><div id="interviewers" class="list"></div></div>
+      <div class="panel wide full-span"><div class="panel-head"><div><p class="eyebrow">SCHEDULING LINK</p><h2>共通調整リンク</h2></div></div><div id="links" class="list"></div></div>
+      <div class="panel wide full-span"><div class="panel-head"><div><p class="eyebrow">CONFIRMED</p><h2>設定された面接一覧</h2></div></div><div id="bookings" class="list"></div></div>
+      <div class="panel"><div class="panel-head"><div><p class="eyebrow">GOOGLE CALENDAR</p><h2>カレンダー・通知設定</h2></div></div><a href="/auth/google" class="calendar-connect" id="calendarConnectButton">G&nbsp; Googleカレンダーと連携する</a><p class="connect-help">frt.shibuya@gmail.com でログインしてください</p><form id="settingsForm"><label>チーム名<input id="teamName"></label><label>登録先カレンダー<input type="email" id="calendarEmail" value="frt.shibuya@gmail.com" readonly></label><label>管理者への招待通知<input type="email" id="notificationEmail" value="frt.shibuya@gmail.com"></label><button class="secondary">保存する</button></form></div>
+    </section>
+  </main>
+  <dialog id="interviewerModal"><form id="interviewerForm" method="dialog"><div class="modal-head"><div><p class="eyebrow">NEW INTERVIEWER</p><h2>面接官を追加</h2></div><button class="close" value="cancel">×</button></div><label>面接官名<input name="name" required placeholder="田中 太郎"></label><label>メールアドレス<input name="email" type="email" placeholder="tanaka@example.com"></label><button class="primary full">追加する</button></form></dialog>
+  <dialog id="availabilityModal" class="large-dialog"><form id="availabilityForm" method="dialog"><div class="modal-head"><div><p class="eyebrow">AVAILABILITY</p><h2>空き枠をカレンダーから登録</h2></div><button class="close" value="cancel">×</button></div><label>面接官<select name="interviewerId" class="interviewer-select" required></select></label><div class="admin-calendar-layout"><div id="availabilityCalendar"></div><div class="time-builder"><h3 id="availabilityDateLabel">日付を選択してください</h3><p class="helper">対応可能時間は10:00-20:00開始、60分単位で固定です。</p><button type="button" class="secondary full" id="addDaySlots">この日の枠を追加</button></div></div><div class="selected-slots"><div class="panel-head"><h3>登録予定の空き枠</h3><button type="button" class="text-btn" id="clearAvailability">すべてクリア</button></div><div id="availabilityPreview" class="slot-tags"></div></div><button class="primary full" id="saveAvailability">選択した空き枠を登録する</button></form></dialog>
+  <script src="/app.js"></script>
+</body></html>
