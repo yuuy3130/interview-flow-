@@ -16,7 +16,7 @@ const publicDir = path.join(root, "public");
 const dataDir = path.join(root, "data");
 const dataFile = path.join(dataDir, "store.json");
 const port = Number(process.env.PORT || 3000);
-const host = process.env.HOST || "127.0.0.1";
+const host = process.env.HOST || "0.0.0.0";
 const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
 
 fs.mkdirSync(dataDir, { recursive: true });
