@@ -75,9 +75,21 @@ async function writeStore(data) {
     body: JSON.stringify({ id: "main", data, updated_at: new Date().toISOString() })
   });
 }
-const isAllowedAvailabilityStart = (start) => {
-  const date = new Date(start);
-  return date.getMinutes() === 0 && date.getHours() >= 10 && date.getHours() <= 20;
+const localTimeParts = (value, timezone = "Asia/Tokyo") => {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date(value));
+  return {
+    hour: Number(parts.find((part) => part.type === "hour")?.value || 0),
+    minute: Number(parts.find((part) => part.type === "minute")?.value || 0)
+  };
+};
+const isAllowedAvailabilityStart = (start, timezone = "Asia/Tokyo") => {
+  const { hour, minute } = localTimeParts(start, timezone);
+  return minute === 0 && hour >= 10 && hour <= 20;
 };
 const normalizeStore = (store) => {
   store.settings = { teamName: "採用チーム", notificationEmail: "frt.shibuya@gmail.com", calendarEmail: "frt.shibuya@gmail.com", timezone: "Asia/Tokyo", ...(store.settings || {}) };
@@ -94,7 +106,7 @@ const normalizeStore = (store) => {
   store.interviewers.sort((a, b) => a.priority - b.priority || a.createdAt.localeCompare(b.createdAt));
   store.interviewers.forEach((item, index) => { item.priority = index + 1; });
   const todayKey = localDateKey(new Date(), store.settings.timezone);
-  store.availabilities = store.availabilities.filter((item) => localDateKey(item.start, store.settings.timezone) > todayKey && isAllowedAvailabilityStart(item.start));
+  store.availabilities = store.availabilities.filter((item) => localDateKey(item.start, store.settings.timezone) > todayKey && isAllowedAvailabilityStart(item.start, store.settings.timezone));
   store.blocks = [];
   store.bookings = store.bookings.filter((item) => {
     const duration = item.duration || store.links.find((link) => link.id === item.linkId)?.duration || 60;
@@ -362,7 +374,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const interviewer = store.interviewers.find((item) => item.id === body.interviewerId);
       if (!interviewer) return json(res, 404, { error: "面接官が見つかりません" });
-      const starts = [...new Set(body.starts || [])].filter(isAllowedAvailabilityStart);
+      const starts = [...new Set(body.starts || [])].filter((start) => isAllowedAvailabilityStart(start, store.settings.timezone));
       for (const start of starts) {
         if (!store.availabilities.some((item) => item.interviewerId === body.interviewerId && item.start === start)) {
           store.availabilities.push({ id: id(), interviewerId: body.interviewerId, start });
