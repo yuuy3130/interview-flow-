@@ -87,7 +87,7 @@ async function render() {
   $("#interviewers").innerHTML = ordered.length ? ordered.map((person, index) => {
     const slots = state.availabilities.filter((item) => item.interviewerId === person.id).sort((a,b) => new Date(a.start)-new Date(b.start));
     const upcoming = slots.slice(0, 3).map((slot) => `<button class="slot-tag delete-availability" data-id="${slot.id}" title="クリックで削除">${fmt(slot.start)} ×</button>`).join("");
-    return `<article class="row interviewer-row"><div class="priority-badge">${person.priority}</div><div class="avatar">${person.name.slice(0,1)}</div><div class="row-main"><strong>${person.name}</strong><span>${person.email || "メール未登録"} ・ 空き枠 ${slots.length}件 ・ 優先順位 ${person.priority}</span><div class="email-editor"><input type="email" class="interviewer-email" data-id="${person.id}" value="${person.email || ""}" placeholder="通知先メールアドレス"><button class="copy save-email" data-id="${person.id}">メール保存</button></div><div class="slot-tags">${upcoming}${slots.length > 3 ? `<em>ほか${slots.length - 3}件</em>` : ""}</div></div><div class="row-actions"><button class="copy priority-up" data-id="${person.id}" data-priority="${person.priority}" ${index === 0 ? "disabled" : ""}>上へ</button><button class="copy priority-down" data-id="${person.id}" data-priority="${person.priority}" ${index === ordered.length - 1 ? "disabled" : ""}>下へ</button><button class="copy add-for-person" data-id="${person.id}">空き枠</button><button class="delete delete-interviewer" data-id="${person.id}">削除</button></div></article>`;
+    return `<article class="row interviewer-row"><div class="priority-badge">${person.priority}</div><div class="avatar">${person.name.slice(0,1)}</div><div class="row-main"><strong>${person.name}</strong><span>${person.email || "メール未登録"} ・ ${person.meetUrl ? "固定Meetリンク登録済み" : "固定Meetリンク未登録"} ・ 空き枠 ${slots.length}件 ・ 優先順位 ${person.priority}</span><div class="email-editor"><input type="email" class="interviewer-email" data-id="${person.id}" value="${person.email || ""}" placeholder="通知先メールアドレス"><input type="url" class="interviewer-meet" data-id="${person.id}" value="${person.meetUrl || ""}" placeholder="固定Meetリンク"><button class="copy save-email" data-id="${person.id}">保存</button></div><div class="slot-tags">${upcoming}${slots.length > 3 ? `<em>ほか${slots.length - 3}件</em>` : ""}</div></div><div class="row-actions"><button class="copy priority-up" data-id="${person.id}" data-priority="${person.priority}" ${index === 0 ? "disabled" : ""}>上へ</button><button class="copy priority-down" data-id="${person.id}" data-priority="${person.priority}" ${index === ordered.length - 1 ? "disabled" : ""}>下へ</button><button class="copy add-for-person" data-id="${person.id}">空き枠</button><button class="delete delete-interviewer" data-id="${person.id}">削除</button></div></article>`;
   }).join("") : empty("まず面接官を追加してください");
   $("#links").innerHTML = `<article class="row"><div class="row-icon violet">↗</div><div class="row-main"><strong>共通調整リンク</strong><span>全面接官の空き枠を匿名集約 ・ 候補者には「○枠」だけ表示</span><code class="link-code">${commonUrl()}</code></div><button class="copy copy-common-link">リンクをコピー</button></article>`;
   $("#bookings").innerHTML = state.bookings.length ? state.bookings.map((item) => {
@@ -102,8 +102,9 @@ function bindRows() {
   document.querySelectorAll(".add-for-person").forEach((button) => button.onclick = () => openAvailability(button.dataset.id));
   document.querySelectorAll(".delete-interviewer").forEach((button) => button.onclick = async () => { if (!confirm("この面接官と登録済み空き枠を削除しますか？")) return; await api(`/api/interviewers/${button.dataset.id}`, { method: "DELETE" }); render(); });
   document.querySelectorAll(".save-email").forEach((button) => button.onclick = async () => {
-    const input = document.querySelector(`.interviewer-email[data-id="${button.dataset.id}"]`);
-    await api(`/api/interviewers/${button.dataset.id}`, { method: "PATCH", body: JSON.stringify({ email: input.value }) });
+    const email = document.querySelector(`.interviewer-email[data-id="${button.dataset.id}"]`);
+    const meetUrl = document.querySelector(`.interviewer-meet[data-id="${button.dataset.id}"]`);
+    await api(`/api/interviewers/${button.dataset.id}`, { method: "PATCH", body: JSON.stringify({ email: email.value, meetUrl: meetUrl.value }) });
     button.textContent = "保存済み";
     setTimeout(render, 700);
   });
@@ -118,7 +119,7 @@ function bindRows() {
   });
 }
 document.querySelectorAll("[data-open]").forEach((button) => button.onclick = () => button.dataset.open === "availabilityModal" ? openAvailability() : $(`#${button.dataset.open}`).showModal());
-$("#interviewerForm").onsubmit = async (event) => { event.preventDefault(); const data = new FormData(event.target); await api("/api/interviewers", { method: "POST", body: JSON.stringify({ name: data.get("name"), email: data.get("email") }) }); event.target.reset(); $("#interviewerModal").close(); render(); };
+$("#interviewerForm").onsubmit = async (event) => { event.preventDefault(); const data = new FormData(event.target); await api("/api/interviewers", { method: "POST", body: JSON.stringify({ name: data.get("name"), email: data.get("email"), meetUrl: data.get("meetUrl") }) }); event.target.reset(); $("#interviewerModal").close(); render(); };
 $("#addDaySlots").onclick = () => {
   if (!availabilityDate) return;
   for (let hour = 10; hour <= 20; hour++) {

@@ -1,9 +1,10 @@
 .stats.four{grid-template-columns:repeat(4,1fr)}
 .full-span{grid-column:1/-1}.interviewer-row{min-height:76px}
+.action-panel{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:auto}.action-panel .primary{white-space:nowrap}.panel-copy{color:var(--muted);font-size:11px;margin:8px 0 18px;line-height:1.7}
 .large-dialog{width:min(850px,94vw)}.admin-calendar-layout{display:grid;grid-template-columns:1.3fr .8fr;gap:22px}.time-builder{background:#f8f8fc;border-radius:12px;padding:18px;height:max-content}.time-builder h3,.selected-slots h3{font-size:12px;margin:0 0 16px}.admin-day{cursor:pointer}.admin-day:hover,.admin-day.chosen{background:var(--violet);color:#fff}.admin-day.has-slots{border-color:#75b69e;background:#ecf7f2;color:#24745a}.admin-day.has-slots.chosen{background:var(--violet);color:#fff}.selected-slots{border-top:1px solid var(--line);margin-top:20px;padding-top:18px}.selected-slots .panel-head{margin-bottom:8px}.muted-small{font-size:10px;color:var(--muted);padding:7px}
 .calendar-connect{display:block;text-align:center;text-decoration:none;background:var(--violet);color:#fff;border-radius:9px;padding:13px;margin-bottom:7px;font-size:12px;font-weight:700}.calendar-connect.connected{background:var(--green)}.connect-help{text-align:center;color:var(--muted);font-size:9px;margin-bottom:18px}
 .priority-badge{width:30px;height:30px;border-radius:9px;background:#f5eede;color:#9b6a21;display:grid;place-items:center;font-size:11px;font-weight:800}.row-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}.row-actions .copy:disabled{opacity:.35;cursor:not-allowed}.link-code{display:block;color:#6c7280;background:#f7f8fb;border-radius:7px;padding:7px 9px;font-size:10px;width:max-content;max-width:100%;overflow:hidden;text-overflow:ellipsis}.time-slot{display:flex;justify-content:space-between;align-items:center}.time-slot span{font-size:10px;background:#efeefa;color:var(--violet);border-radius:20px;padding:4px 8px}
-.email-editor{display:flex;gap:8px;margin:8px 0 3px}.email-editor input{max-width:320px;padding:8px 10px;font-size:11px}.email-editor .copy{white-space:nowrap}
+.email-editor{display:flex;gap:8px;margin:8px 0 3px;flex-wrap:wrap}.email-editor input{max-width:320px;min-width:220px;padding:8px 10px;font-size:11px}.email-editor .copy{white-space:nowrap}
 .booking-row{align-items:flex-start}.booking-editor{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}.booking-editor input{max-width:210px;padding:8px 10px;font-size:11px}.booking-editor .copy,.booking-editor .delete{white-space:nowrap}
 .helper{background:#f4f3fb;color:#7169a1;border-radius:8px;padding:12px;font-size:11px;line-height:1.6}
 .avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#ece9fb;color:var(--violet);font-weight:800}
@@ -32,3 +33,4 @@
 @media(max-width:1000px){.stats.four{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:700px){.calendar-layout{grid-template-columns:1fr}.calendar-day{min-height:45px}.stats.four{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.admin-calendar-layout{grid-template-columns:1fr}}
+@media(max-width:700px){.action-panel{align-items:stretch;flex-direction:column}.action-panel .primary{width:100%}}
