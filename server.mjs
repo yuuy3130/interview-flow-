@@ -177,6 +177,10 @@ const formatDateTime = (value, timezone = "Asia/Tokyo") => new Intl.DateTimeForm
   minute: "2-digit"
 }).format(new Date(value));
 const base64url = (value) => Buffer.from(value, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+const meetSpaceName = (meetUrl = "") => {
+  const match = meetUrl.match(/meet\.google\.com\/([a-z]{3}-[a-z]{4}-[a-z]{3})/i);
+  return match ? `spaces/${match[1].replace(/-/g, "")}` : "";
+};
 
 async function googleRequest(store, url, options = {}) {
   let token = store.google.accessToken;
@@ -212,7 +216,7 @@ async function createCalendarEvent(store, link, booking) {
   const end = new Date(new Date(booking.start).getTime() + link.duration * 60_000).toISOString();
   const interviewer = store.interviewers.find((item) => item.id === (booking.interviewerId || link.interviewerId));
   const calendarId = encodeURIComponent(store.settings.calendarEmail || "frt.shibuya@gmail.com");
-  return googleRequest(store, `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?conferenceDataVersion=1`, {
+  const event = await googleRequest(store, `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?conferenceDataVersion=1`, {
     method: "POST",
     body: JSON.stringify({
       summary: `【1次面接】${booking.candidateName}様-${interviewer?.name || link.interviewer}-`,
@@ -222,6 +226,21 @@ async function createCalendarEvent(store, link, booking) {
       conferenceData: { createRequest: { requestId: id(), conferenceSolutionKey: { type: "hangoutsMeet" } } }
     })
   });
+  await setMeetOpenAccess(store, event.hangoutLink);
+  return event;
+}
+async function setMeetOpenAccess(store, meetUrl) {
+  const spaceName = meetSpaceName(meetUrl);
+  if (!spaceName) return null;
+  try {
+    return await googleRequest(store, `https://meet.googleapis.com/v2/${spaceName}?updateMask=config.access_type`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: spaceName, config: { accessType: "OPEN" } })
+    });
+  } catch (error) {
+    console.error("Meetの入室設定をOPENに変更できませんでした:", error.message);
+    return null;
+  }
 }
 async function sendBookingNotification(store, booking) {
   if (!store.google.accessToken) return null;
@@ -513,7 +532,7 @@ const server = http.createServer(async (req, res) => {
         response_type: "code",
         access_type: "offline",
         prompt: "consent",
-        scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.send",
+        scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/meetings.space.settings",
         login_hint: "frt.shibuya@gmail.com",
         state: crypto.randomBytes(12).toString("hex")
       });
