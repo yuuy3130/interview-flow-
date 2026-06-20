@@ -88,6 +88,8 @@ const normalizeStore = (store) => {
   store.bookings ||= [];
   store.interviewers.forEach((item, index) => {
     if (!Number.isFinite(item.priority)) item.priority = index + 1;
+    item.email ||= "";
+    item.meetUrl ||= "";
   });
   store.interviewers.sort((a, b) => a.priority - b.priority || a.createdAt.localeCompare(b.createdAt));
   store.interviewers.forEach((item, index) => { item.priority = index + 1; });
@@ -106,7 +108,7 @@ const normalizeStore = (store) => {
     if (!link.interviewerId) {
       let interviewer = store.interviewers.find((item) => item.name === link.interviewer);
       if (!interviewer) {
-        interviewer = { id: id(), name: link.interviewer || "面接官", email: "", createdAt: new Date().toISOString() };
+        interviewer = { id: id(), name: link.interviewer || "面接官", email: "", meetUrl: "", createdAt: new Date().toISOString() };
         store.interviewers.push(interviewer);
       }
       link.interviewerId = interviewer.id;
@@ -177,10 +179,6 @@ const formatDateTime = (value, timezone = "Asia/Tokyo") => new Intl.DateTimeForm
   minute: "2-digit"
 }).format(new Date(value));
 const base64url = (value) => Buffer.from(value, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-const meetSpaceName = (meetUrl = "") => {
-  const match = meetUrl.match(/meet\.google\.com\/([a-z]{3}-[a-z]{4}-[a-z]{3})/i);
-  return match ? `spaces/${match[1].replace(/-/g, "")}` : "";
-};
 
 async function googleRequest(store, url, options = {}) {
   let token = store.google.accessToken;
@@ -216,31 +214,17 @@ async function createCalendarEvent(store, link, booking) {
   const end = new Date(new Date(booking.start).getTime() + link.duration * 60_000).toISOString();
   const interviewer = store.interviewers.find((item) => item.id === (booking.interviewerId || link.interviewerId));
   const calendarId = encodeURIComponent(store.settings.calendarEmail || "frt.shibuya@gmail.com");
-  const event = await googleRequest(store, `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?conferenceDataVersion=1`, {
+  const meetUrl = booking.meetUrl || interviewer?.meetUrl || "";
+  return googleRequest(store, `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`, {
     method: "POST",
     body: JSON.stringify({
       summary: `【1次面接】${booking.candidateName}様-${interviewer?.name || link.interviewer}-`,
-      description: `面接調整リンクから確定しました。\n面接官: ${interviewer?.name || link.interviewer}\n候補者: ${booking.candidateName}`,
+      description: `面接調整リンクから確定しました。\n面接官: ${interviewer?.name || link.interviewer}\n候補者: ${booking.candidateName}\n面接URL: ${meetUrl || "未設定"}`,
+      location: meetUrl || "",
       start: { dateTime: booking.start, timeZone: store.settings.timezone },
-      end: { dateTime: end, timeZone: store.settings.timezone },
-      conferenceData: { createRequest: { requestId: id(), conferenceSolutionKey: { type: "hangoutsMeet" } } }
+      end: { dateTime: end, timeZone: store.settings.timezone }
     })
   });
-  await setMeetOpenAccess(store, event.hangoutLink);
-  return event;
-}
-async function setMeetOpenAccess(store, meetUrl) {
-  const spaceName = meetSpaceName(meetUrl);
-  if (!spaceName) return null;
-  try {
-    return await googleRequest(store, `https://meet.googleapis.com/v2/${spaceName}?updateMask=config.access_type`, {
-      method: "PATCH",
-      body: JSON.stringify({ name: spaceName, config: { accessType: "OPEN" } })
-    });
-  } catch (error) {
-    console.error("Meetの入室設定をOPENに変更できませんでした:", error.message);
-    return null;
-  }
 }
 async function sendBookingNotification(store, booking) {
   if (!store.google.accessToken) return null;
@@ -259,7 +243,27 @@ async function sendBookingNotification(store, booking) {
     `URL：${booking.meetUrl || "未発行"}`,
     `インフラメッセージ：${infraMessageUrl}`,
     "",
-    "上記インフラメッセージ上で候補者へ返信してください。"
+    "上記インフラメッセージ上で候補者へ返信してください。",
+    "",
+    "--以下infra送信分--",
+    "{name}様",
+    "",
+    "ご連絡ありがとうございます。",
+    "下記の通りで面談を確定させていただきました。",
+    "",
+    "内容をご確認いただけましたらご返信いただきますようお願いいたします。",
+    "",
+    "◆面談開始時刻",
+    formatDateTime(booking.start, store.settings.timezone),
+    "◆場所（オンライン）",
+    "〜URL〜",
+    booking.meetUrl || "未発行",
+    "",
+    "当日はこちらのURLからよろしくお願いいたします。",
+    "",
+    "以上、ご確認のほどよろしくお願いいたします。",
+    "",
+    "フロンティア株式会社 採用担当"
   ].join("\n");
   const raw = [
     `To: ${recipients.join(", ")}`,
@@ -288,12 +292,14 @@ async function updateCalendarEvent(store, booking) {
   if (!store.google.accessToken || !booking.calendarEventId) return null;
   const calendarId = encodeURIComponent(store.settings.calendarEmail || "frt.shibuya@gmail.com");
   const interviewer = store.interviewers.find((item) => item.id === booking.interviewerId);
+  const meetUrl = booking.meetUrl || interviewer?.meetUrl || "";
   const end = new Date(new Date(booking.start).getTime() + (booking.duration || 60) * 60_000).toISOString();
-  return googleRequest(store, `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${encodeURIComponent(booking.calendarEventId)}?conferenceDataVersion=1`, {
+  return googleRequest(store, `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${encodeURIComponent(booking.calendarEventId)}`, {
     method: "PATCH",
     body: JSON.stringify({
       summary: `【1次面接】${booking.candidateName}様-${interviewer?.name || "面接官"}-`,
-      description: `面接調整リンクから変更されました。\n面接官: ${interviewer?.name || "面接官"}\n候補者: ${booking.candidateName}`,
+      description: `面接調整リンクから変更されました。\n面接官: ${interviewer?.name || "面接官"}\n候補者: ${booking.candidateName}\n面接URL: ${meetUrl || "未設定"}`,
+      location: meetUrl || "",
       start: { dateTime: booking.start, timeZone: store.settings.timezone },
       end: { dateTime: end, timeZone: store.settings.timezone }
     })
@@ -323,7 +329,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/interviewers") {
       const store = normalizeStore(await readStore());
       const body = await readBody(req);
-      const interviewer = { id: id(), name: body.name, email: body.email || "", priority: store.interviewers.length + 1, createdAt: new Date().toISOString() };
+      const interviewer = { id: id(), name: body.name, email: body.email || "", meetUrl: body.meetUrl || "", priority: store.interviewers.length + 1, createdAt: new Date().toISOString() };
       store.interviewers.push(interviewer);
       await writeStore(store);
       return json(res, 201, interviewer);
@@ -336,6 +342,7 @@ const server = http.createServer(async (req, res) => {
       if (body.priority !== undefined) interviewer.priority = Number(body.priority);
       if (body.name !== undefined) interviewer.name = body.name;
       if (body.email !== undefined) interviewer.email = body.email;
+      if (body.meetUrl !== undefined) interviewer.meetUrl = body.meetUrl;
       normalizeStore(store);
       await writeStore(store);
       return json(res, 200, interviewer);
@@ -400,8 +407,7 @@ const server = http.createServer(async (req, res) => {
       booking.updatedAt = new Date().toISOString();
       let calendarError = null;
       try {
-        const updatedEvent = await updateCalendarEvent(store, booking);
-        if (updatedEvent?.hangoutLink) booking.meetUrl = updatedEvent.hangoutLink;
+        await updateCalendarEvent(store, booking);
       } catch (error) {
         calendarError = error.message;
       }
@@ -464,7 +470,7 @@ const server = http.createServer(async (req, res) => {
       const interviewer = availableInterviewersForSlot(store, body.start)[0];
       if (!interviewer) return json(res, 409, { error: "この日時は先に予約されました。別の日時をお選びください" });
       const link = { ...commonLink(), interviewerId: interviewer.id, interviewer: interviewer.name };
-      const booking = { id: id(), linkId: "all", interviewerId: interviewer.id, duration: 60, candidateName: body.candidateName, candidateEmail: "", note: "", start: body.start, createdAt: new Date().toISOString() };
+      const booking = { id: id(), linkId: "all", interviewerId: interviewer.id, duration: 60, candidateName: body.candidateName, candidateEmail: "", note: "", start: body.start, meetUrl: interviewer.meetUrl || "", createdAt: new Date().toISOString() };
       let calendarEvent = null;
       let calendarError = null;
       let notificationError = null;
@@ -472,7 +478,6 @@ const server = http.createServer(async (req, res) => {
         try {
           calendarEvent = await createCalendarEvent(store, link, booking);
           booking.calendarEventId = calendarEvent.id;
-          booking.meetUrl = calendarEvent.hangoutLink || "";
         } catch (error) {
           calendarError = error.message;
         }
@@ -505,14 +510,14 @@ const server = http.createServer(async (req, res) => {
         return bookedLink?.interviewerId === link.interviewerId && start < bookedEnd && end > bookedStart;
       });
       if (blocked || booked) return json(res, 409, { error: "この日時は先に予約またはブロックされました。別の日時をお選びください" });
-      const booking = { id: id(), linkId: link.id, candidateName: body.candidateName, candidateEmail: body.candidateEmail || "", note: body.note || "", start: body.start, createdAt: new Date().toISOString() };
+      const interviewer = store.interviewers.find((item) => item.id === link.interviewerId);
+      const booking = { id: id(), linkId: link.id, interviewerId: link.interviewerId, duration: link.duration, candidateName: body.candidateName, candidateEmail: body.candidateEmail || "", note: body.note || "", start: body.start, meetUrl: interviewer?.meetUrl || "", createdAt: new Date().toISOString() };
       let calendarEvent = null;
       let calendarError = null;
       if (store.google.accessToken) {
         try {
           calendarEvent = await createCalendarEvent(store, link, booking);
           booking.calendarEventId = calendarEvent.id;
-          booking.meetUrl = calendarEvent.hangoutLink || "";
         } catch (error) {
           calendarError = error.message;
         }
@@ -532,7 +537,7 @@ const server = http.createServer(async (req, res) => {
         response_type: "code",
         access_type: "offline",
         prompt: "consent",
-        scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/meetings.space.settings",
+        scope: "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.send",
         login_hint: "frt.shibuya@gmail.com",
         state: crypto.randomBytes(12).toString("hex")
       });
